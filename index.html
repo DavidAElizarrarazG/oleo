@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="es-MX" data-tema="dia">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>OLEO: tu aceite usado vale dinero</title>
+  <meta name="description" content="Registra tu puesto, avisa cuando tu bote de aceite usado esté lleno y cobra al momento de entregarlo.">
+  <meta name="theme-color" content="#1C2427">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="OLEO">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png">
+  <link rel="stylesheet" href="css/app.css">
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <a class="saltar" href="#principal">Ir al contenido</a>
+  <header class="cabecera">
+    <a class="marca" href="#/" aria-label="OLEO, inicio">
+      <svg viewBox="0 0 32 32" aria-hidden="true" class="marca-logo">
+        <path d="M11 3h10v4h-10z" fill="currentColor"/>
+        <path d="M8 9.5C8 8 9 7 10.5 7h11C23 7 24 8 24 9.5V27c0 1.1-.9 2-2 2H10c-1.1 0-2-.9-2-2z" fill="none" stroke="currentColor" stroke-width="2.2"/>
+        <path d="M9.6 17h12.8v9.4c0 .6-.4 1-1 1H10.6c-.6 0-1-.4-1-1z" fill="var(--aceite)"/>
+      </svg>
+      <span>OLEO</span>
+    </a>
+    <span id="estado-conexion" class="estado-conexion" role="status"></span>
+    <button id="btn-instalar" class="btn-instalar" hidden>Instalar</button>
+  </header>
+  <div id="banda-version" class="banda" hidden>
+    <span>Hay una versión nueva de OLEO</span>
+    <button class="btn-chico" id="btn-actualizar-version">Actualizar</button>
+  </div>
+  <main id="principal" class="principal" tabindex="-1">
+    <noscript><p class="panel">OLEO necesita JavaScript para funcionar.</p></noscript>
+  </main>
+  <nav class="barra" aria-label="Navegación principal">
+    <a href="#/" data-seccion="inicio"><span class="barra-icono" data-icono="inicio"></span>Inicio</a>
+    <a href="#/comerciante" data-seccion="comerciante"><span class="barra-icono" data-icono="puesto"></span>Mi puesto</a>
+    <a href="#/recolector" data-seccion="recolector"><span class="barra-icono" data-icono="recolector"></span>Recolector</a>
+    <a href="#/impacto" data-seccion="impacto"><span class="barra-icono" data-icono="impacto"></span>Impacto</a>
+  </nav>
+</body>
+</html>

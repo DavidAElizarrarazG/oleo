@@ -1,0 +1,21 @@
+{
+  "name": "oleo-poc",
+  "private": true,
+  "version": "1.0.0",
+  "description": "OLEO: POC de captación, validación y monetización inmediata de aceite vegetal usado (AVU). Node solo para herramientas y pruebas.",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "simulador": "node herramientas/simulador-make.mjs",
+    "servir": "node herramientas/servir.mjs",
+    "test": "playwright test tests/e2e.spec.mjs",
+    "vendor": "node herramientas/copiar-vendor.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "jsqr": "1.4.0",
+    "leaflet": "1.9.4",
+    "qrcode-generator": "1.4.4",
+    "terser": "^5.51.2"
+  }
+}
