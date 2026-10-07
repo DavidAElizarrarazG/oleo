@@ -4,6 +4,8 @@ Plataforma de captación, validación y monetización inmediata de aceite vegeta
 
 **Equipo:** David Alejandro Elizarraraz García, Diego Sastre Villaseñor, Ulises Domínguez Hernández y Alejandra Roa Alonso.
 
+**App publicada:** https://davidaelizarrarazg.github.io/oleo/ (QR de portada en `capturas/qr-portada.png`).
+
 > Todo lo financiero es simulado: no hay dinero real, cuentas bancarias ni credenciales. La báscula IoT también se simula dentro de la PWA.
 
 ## Qué hace
