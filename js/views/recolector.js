@@ -9,6 +9,7 @@ import { Escaner, leerContenido } from '../qr.js';
 import { $, esc, fmtNum, fmtKg, fmtL, fmtMoneda, fmtSeg, haceCuanto, aviso, sondear, cargarScript, cargarCSS, icono } from '../util.js';
 import { cadenaDato, metricasVerdes, botonActualizar, mensajeError } from './componentes.js';
 import { normalizarPuestoId } from './comerciante.js';
+import { enlaceWhatsApp, mensajePago, numeroWhatsApp } from '../whatsapp.js';
 
 const destinoPesar = (puestoRecId, puestoId, solicitudId) =>
   `#/recolector/pesar/${encodeURIComponent(puestoRecId)}?p=${encodeURIComponent(puestoId || '')}${solicitudId ? `&s=${encodeURIComponent(solicitudId)}` : ''}`;
@@ -572,6 +573,10 @@ export async function pagado({ raiz, params, senal }) {
       <p class="grande">${fmtMoneda(rec.monto)} al puesto ${esc(rec.puestoId || '')} por ${fmtL(rec.litros)}.</p>
       <p class="chico secundario">Confirmado por ${esc((rec.canal || 'App del comerciante').toLowerCase())}. Transferencia SPEI simulada.</p>
     </div>
+    <div class="pila-chica">
+      <a class="btn btn-exito" id="btn-whatsapp" target="_blank" rel="noopener" href="${esc(enlaceWhatsApp('', mensajePago(rec, rec.nombre)))}">Enviar comprobante por WhatsApp</a>
+      <p class="chico secundario" id="nota-whatsapp" aria-live="polite">Buscando el WhatsApp del puesto.</p>
+    </div>
     <div class="tiempos">
       ${pago ? `<div><p class="chico secundario">Confirmación a abono</p><p class="valor">${fmtSeg(pago.latenciaMs / 1000)}</p></div>` : ''}
       <div><p class="chico secundario">Del pesaje al abono</p><p class="valor">${total === null ? '-' : fmtSeg(total)}</p></div>
@@ -585,4 +590,13 @@ export async function pagado({ raiz, params, senal }) {
       <a class="btn btn-secundario" href="#/constancia/${esc(id)}">Ver constancia</a>
       <a class="btn btn-primario" href="#/recolector">Siguiente puesto</a>
     </div>`;
+
+  // Número del dueño: del caché si el puesto ya se consultó; si no, una consulta (4 créditos).
+  const puesto = api.cache.puestos.get(rec.puestoRecId) || await api.obtenerPuesto(rec.puestoRecId).catch(() => null);
+  if (senal.aborted) return;
+  const numero = numeroWhatsApp(puesto?.whatsapp);
+  $('#btn-whatsapp', raiz).href = enlaceWhatsApp(numero, mensajePago(rec, puesto?.nombre || rec.nombre));
+  $('#nota-whatsapp', raiz).textContent = numero
+    ? `Abre WhatsApp con el mensaje listo para ${numero.slice(-10).replace(/(\d{2})(\d{4})(\d{4})/, '$1 $2 $3')}; solo toca Enviar.`
+    : 'Este puesto no registró WhatsApp: elige el contacto al abrir.';
 }

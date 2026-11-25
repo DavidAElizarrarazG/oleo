@@ -10,7 +10,9 @@ Plataforma de captación, validación y monetización inmediata de aceite vegeta
 
 ## Qué hace
 
-Registro del puesto (desde el QR de la portada) → aviso de "bote lleno" → ruta nocturna del recolector → escaneo del QR del bote → pesaje con báscula HX711 simulada → control de calidad por turbidez → doble confirmación del comerciante (app o PIN en sitio) → webhook de Make hacia una API SPEI/CoDi simulada → abono inmediato → constancia con sello SHA-256 verificable → métricas verdes (1 L de aceite = 1,000 L de agua protegidos).
+Registro del puesto (desde el QR de la portada) → aviso de "bote lleno" → ruta nocturna del recolector → escaneo del QR del bote → pesaje con báscula HX711 simulada → control de calidad por turbidez → doble confirmación del comerciante (app o PIN en sitio) → webhook de Make hacia una API SPEI/CoDi simulada → abono inmediato → comprobante al dueño por WhatsApp (enlace wa.me con el mensaje listo) → constancia con sello SHA-256 verificable → métricas verdes (1 L de aceite = 1,000 L de agua protegidos).
+
+Además, el comerciante tiene un **asistente con IA** (Claude vía Make) que consulta su saldo, avisa que su bote está lleno y le muestra la recolección por cobrar; el pago siempre lo confirma el comerciante con un botón.
 
 ## Arquitectura
 
@@ -48,6 +50,10 @@ js/sim/datos-ejemplo.js        datos de ejemplo inventados
 js/metrics.js                  métricas verdes y monetización
 js/scale.js                    báscula simulada (HX711) y cliente Web Bluetooth
 js/qr.js                       QR del puesto, escáner y etiqueta PNG
+js/whatsapp.js                 comprobante de pago por WhatsApp (wa.me)
+js/agente.js                   asistente: ciclo de herramientas y conversación
+js/agente-definicion.js        modelo, instrucciones y herramientas del asistente (fuente del cuerpo de Make)
+js/sim/agente-simulado.js      modelo simulado del asistente (modo local y pruebas)
 js/route.js                    alcaldías, clústeres y vecino más cercano
 js/util.js                     DOM, formato es-MX, avisos, sha256, sondeo
 js/views/                      inicio, comerciante, recolector, constancia, impacto, ajustes
@@ -69,9 +75,10 @@ capturas/                      pantallas para el reporte
 | `node herramientas/crear-base-airtable.mjs` | Crea tablas y campos en Airtable (`--verificar` revisa el esquema) |
 | `node herramientas/sembrar-airtable.mjs` | Carga datos de ejemplo en Airtable |
 | `node herramientas/qr-portada.mjs <URL>` | QR de la portada (PNG 2000 px y SVG) |
+| `node herramientas/agente-make.mjs` | Cuerpo de la petición a Claude para el módulo HTTP de Make |
 | `node herramientas/generar-iconos.mjs` | Regenera los íconos PNG desde `icons/icon.svg` |
 | `node herramientas/copiar-vendor.mjs` | Copia y minifica las librerías a `vendor/` |
-| `npm test` | Pruebas E2E T0 a T10 y capturas |
+| `npm test` | Pruebas E2E T0 a T12 y capturas |
 
 ## Créditos de terceros
 
@@ -82,7 +89,7 @@ capturas/                      pantallas para el reporte
 | [Leaflet](https://leafletjs.com), Volodymyr Agafonkin y colaboradores | 1.9.4 | BSD-2-Clause |
 | Teselas y datos del mapa: [OpenStreetMap](https://www.openstreetmap.org/copyright) | | ODbL |
 
-"QR Code" es marca registrada de DENSO WAVE INCORPORATED. Herramientas de desarrollo: Playwright (Apache-2.0) y Terser (BSD-2-Clause).
+"QR Code" es marca registrada de DENSO WAVE INCORPORATED. Herramientas de desarrollo: Playwright (Apache-2.0), Terser (BSD-2-Clause) y el SDK de Anthropic para TypeScript (MIT), este último solo en el simulador de Node.
 
 ## Licencia
 

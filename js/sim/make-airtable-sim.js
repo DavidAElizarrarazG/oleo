@@ -3,7 +3,9 @@
 // (herramientas/simulador-make.mjs, servidor HTTP para las pruebas E2E).
 //
 // Reproduce:
-//  - Escenario A "OLEO API": router Datos / Pago / No reconocida, con los mismos filtros, status y cuerpos.
+//  - Escenario A "OLEO API": router Datos / Pago / Agente / No reconocida, con los mismos filtros, status y cuerpos.
+//    La ruta Agente reenvía la conversación a Claude; aquí la atiende un manejador inyectable
+//    (por defecto el modelo simulado de js/sim/agente-simulado.js).
 //  - Escenario B "API financiera simulada (SPEI/CoDi)".
 //  - Airtable: autonumber, created time, fórmulas, lookups, rollups, links inversos, typecast,
 //    listRecords (filterByFormula de 8.3, sort, fields, maxRecords, pageSize) y errores 404/422.
@@ -12,6 +14,7 @@ import { sha256 } from '../util.js';
 import { TIPOS_NEGOCIO } from '../config.js';
 import { ALCALDIAS } from '../route.js';
 import { generarDatosEjemplo } from './datos-ejemplo.js';
+import { manejadorSimulado } from './agente-simulado.js';
 
 export const RUTA_RE = /^(Puestos|Solicitudes|Recolecciones)(\/(rec[A-Za-z0-9]{14}|listRecords))?$/;
 export const METODO_RE = /^(GET|POST|PATCH)$/;
@@ -175,7 +178,8 @@ export function crearSimulador({
   almacen,                                     // { leer(): db|null, escribir(db) }
   ahora = () => new Date(),
   latencia = { db: [250, 700], pago: [900, 1500] },
-  bitacora = () => {}
+  bitacora = () => {},
+  agente = manejadorSimulado                   // async (mensajes) => { status, body } como la API de Claude
 } = {}) {
   const memoria = { db: null };
   const store = almacen || { leer: () => memoria.db, escribir: (db) => { memoria.db = db; } };
@@ -186,7 +190,7 @@ export function crearSimulador({
     contadores: { Puestos: 0, Solicitudes: 0, Recolecciones: 0 },
     opciones: {},
     creditos: 0,
-    operaciones: { db: 0, pagar: 0, rechazo: 0, fallback: 0, error: 0, spei: 0 }
+    operaciones: { db: 0, pagar: 0, rechazo: 0, fallback: 0, error: 0, spei: 0, agente: 0 }
   });
   const cargar = () => store.leer() || nuevaDb();
   const guardar = (db) => store.escribir(db);
@@ -410,7 +414,7 @@ export function crearSimulador({
     const campos = Object.fromEntries(Object.entries(entrada).map(([k, v]) => [k, v === undefined || v === null ? '' : String(v)]));
     const { accion, ruta = '', metodo = '' } = campos;
     const esPago = accion === 'pagar';
-    await esperar(azar(esPago ? latencia.pago : latencia.db));
+    await esperar(azar(esPago || accion === 'agente' ? latencia.pago : latencia.db));
     const db = cargar();
     let creditos = 1; // Custom webhook
     let r;
@@ -466,6 +470,14 @@ export function crearSimulador({
           r = respuesta(409, { ok: false, error: 'La recolección ya fue pagada o el PIN no coincide.' });
         }
       }
+    } else if (accion === 'agente') {
+      // HTTP › Make a request a la API de Claude + Webhook response con su respuesta tal cual.
+      tipo = 'agente';
+      creditos += 2;
+      let mensajes = null;
+      try { mensajes = JSON.parse(campos.mensajes || ''); } catch { /* JSON inválido: la API responde 400 */ }
+      const a = await agente(mensajes);
+      r = respuesta(a.status, a.body);
     } else {
       tipo = 'fallback';
       creditos += 1;

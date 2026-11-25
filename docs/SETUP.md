@@ -280,7 +280,7 @@ Filtro **Label:** `Pagar`. Condición: `{{1.accion}}` Text operators: Equal to `
 
 1. En el módulo 1, **Redetermine data structure** (Make queda escuchando).
 2. En la PWA, `#/config`: peguen la URL del Escenario A en **URL del webhook del Escenario A**, **Guardar** y pulsen **Enviar muestra al webhook**.
-3. Make muestra **Successfully determined** y ya ofrece las píldoras `accion`, `ruta`, `metodo`, `cuerpo`, `recoleccionId`, `pin` y `canal`. Si configuraron los módulos antes de este paso, revisen que las píldoras sigan mapeadas.
+3. Make muestra **Successfully determined** y ya ofrece las píldoras `accion`, `ruta`, `metodo`, `cuerpo`, `recoleccionId`, `pin`, `canal` y `mensajes`. Si configuraron los módulos antes de este paso, revisen que las píldoras sigan mapeadas.
 
 ### 2.5 Activar y probar
 
@@ -289,16 +289,60 @@ Filtro **Label:** `Pagar`. Condición: `{{1.accion}}` Text operators: Equal to `
 3. **Enviar muestra al webhook** con el escenario activo responde `400 {"ok":false,"error":"Acción no reconocida."}`: es lo esperado (la muestra trae `accion=muestra` y cae en la ruta C).
 4. En **History** del escenario A verán cada ejecución con sus módulos. Esa es la evidencia de "Zero-Friction Operations" para la demo.
 
-### 2.6 Créditos
+### 2.6 Asistente del comerciante (ruta "Agente", 15 a 20 min)
+
+El asistente de la pantalla **Mi puesto › Preguntarle al asistente** usa Claude. El ciclo de la conversación corre en la PWA; Make solo reenvía la conversación a la API de Claude, porque ahí vive la API key (nunca en el repositorio ni en la PWA). Make también fija el modelo (`claude-opus-5-5`), las instrucciones y las herramientas, para que el webhook no sirva para otra cosa.
+
+**Antes:** una cuenta en [platform.claude.com](https://platform.claude.com) con saldo, y una API key (**Settings › API keys › Create key**). En **Settings › Limits** pongan un **límite de gasto mensual bajo** (por ejemplo 10 USD): la URL del webhook es pública y así nadie puede gastar más que eso.
+
+**En Make, Escenario A:**
+
+1. Si el router 2 ya tiene sus tres rutas, clic derecho en el router › **Add a route** (o arrastren una salida nueva). Filtro **Label:** `Agente`, condición `{{1.accion}}` Text operators: Equal to `agente`.
+2. **Módulo 13. HTTP › Make a request**
+   - **URL:** `https://api.anthropic.com/v1/messages`
+   - **Method:** `POST`
+   - **Headers:**
+     - `x-api-key` = la API key de Anthropic (si su plan de Make tiene **Keychain**, guárdenla ahí)
+     - `anthropic-version` = `2026-10-21`
+     - `anthropic-beta` = `server-side-fallback-2026-07-01`
+     - `content-type` = `application/json`
+   - **Body type:** Raw, **Content type:** JSON (application/json)
+   - **Request content:** corran `node herramientas/agente-make.mjs` y peguen **completo** el texto que imprime (también queda en `docs/make-agente-cuerpo.json`). Al final aparece `{{1.mensajes}}`: Make lo convierte en la píldora `mensajes` del webhook. No cambien nada más del texto.
+   - **Parse response:** **No** (la respuesta debe llegar a la PWA tal cual, sin que Make la reacomode).
+   - **Evaluate all states as errors:** **No** (así los errores de la API llegan a la PWA con su mensaje).
+   - **Timeout:** 60 s.
+3. **Módulo 14. Webhooks › Webhook response**
+   - **Status:** `{{13.statusCode}}`
+   - **Body:** `{{toString(13.data)}}`
+   - **Custom headers:** `Content-Type` = `application/json` y `Access-Control-Allow-Origin` = `*`
+4. **Redeterminen la estructura del webhook** (paso 2.4) para que aparezca la píldora `mensajes`: la muestra de `#/config` ya la incluye.
+5. **Save** y prueben en `#/config` con **Probar asistente**: debe responder `claude-opus-5-5` con una frase.
+
+Cada mensaje del modelo cuesta 3 créditos de Make (webhook, HTTP y respuesta). Un mensaje del comerciante usa de 1 a 3 llamadas al modelo, más las consultas a Airtable que hagan las herramientas (4 créditos cada una): una pregunta de saldo cuesta unos 10 créditos y un cobro desde el chat unos 20. En la API de Claude, cada llamada cuesta aproximadamente centavos de dólar (esfuerzo `low`).
+
+**Qué puede hacer el asistente:** consultar el saldo, las recolecciones y los avisos (`consultar_mi_puesto`), avisar que el bote está lleno (`avisar_bote_lleno`) y mostrar la recolección por confirmar (`cobrar_recoleccion`). **El cobro siempre lo confirma el comerciante con el botón "Confirmar y cobrar" de la tarjeta**; la IA no puede disparar un pago sola, igual que la doble confirmación de la sección 11.4.
+
+**Para probarlo sin Make** (con su propia API key, desde la computadora):
+
+```bash
+ANTHROPIC_API_KEY=sk-ant-... node herramientas/simulador-make.mjs --claude --ejemplo
+```
+
+y en `#/config` usen `http://localhost:8787/hook/oleo-api` como URL del Escenario A. Sin `--claude`, el simulador y el modo local responden con un modelo simulado (reconoce frases comunes y lo rotula como simulado).
+
+### 2.7 Créditos
 
 | Operación | Créditos aprox. |
 |---|---|
 | Cualquier consulta o escritura (`accion=db`) | 4 |
 | Pago (`accion=pagar`): Escenario A 5 + Escenario B 2 | 7 |
+| Cada llamada del asistente al modelo (`accion=agente`) | 3 |
 | PIN incorrecto o pago repetido (409) | 3 |
 | Ciclo completo de demo | 55 a 65 |
 
 Con 1,000 créditos alcanzan unos 15 ciclos. Ensayen la interfaz en **modo local**, hagan 3 a 4 ensayos completos en la nube y tengan un seguro: un mes del plan Core (10.59 USD) o una segunda cuenta gratuita con los mismos escenarios. La URL del webhook se cambia en caliente desde `#/config`.
+
+La pantalla **Abono ejecutado** del recolector consulta una vez el puesto para obtener su WhatsApp (4 créditos más por pago).
 
 La app ya cuida los créditos: el comerciante consulta cada 8 s hasta 12 veces (se detiene al encontrar una recolección por confirmar), el recolector cada 5 s hasta 36 veces, el tablero solo al abrirlo o con **Actualizar**, y ninguna consulta se hace mientras la pestaña está oculta. Los intervalos se ajustan en `#/config`.
 
@@ -364,7 +408,7 @@ Cada vez que cambien archivos de la app, suban también el número de versión e
 | 1:00 | Teléfono del comerciante: Mi puesto, etiqueta del bote, nivel 85%, **Avisar que mi bote está lleno**. | Fricción mínima, medidor de datos |
 | 1:45 | Teléfono del recolector (tema noche): la solicitud aparece en el mapa. **Escanear QR del bote** sobre la etiqueta del garrafón. | Escaneo en calle, ruta |
 | 2:30 | **Colocar bote en la báscula**: el visor se estabiliza, lectura cruda visible, calidad aceptada, litros, monto y agua. **Registrar recolección**. | Cálculo ambiental automático |
-| 3:30 | Teléfono del comerciante: **Actualizar** si hace falta, "¿Coincide?" › **Confirmar y cobrar**. Abono en segundos en ambos teléfonos. | Webhook financiero |
+| 3:30 | Teléfono del comerciante: **Actualizar** si hace falta, "¿Coincide?" › **Confirmar y cobrar**. Abono en segundos en ambos teléfonos. El recolector toca **Enviar comprobante por WhatsApp** y le llega al dueño el mensaje con folio, monto, clave de rastreo y enlace a su constancia. | Webhook financiero, comprobante al comerciante |
 | 4:15 | Make: History de A y B. Airtable: estado Pagada, clave de rastreo y sello. | Evidencia visual |
 | 5:00 | **Ver constancia** con "Sello verificado". Tablero de impacto. | Cumplimiento documental, métricas verdes |
 | 5:30 | Si hay tiempo: **Confirmar con PIN** de una segunda recolección. | Comerciante sin datos |
@@ -379,6 +423,7 @@ Cada vez que cambien archivos de la app, suban también el número de versión e
 - [ ] Pestañas de Make (History de A y B) y Airtable (tabla Recolecciones) abiertas en la laptop.
 - [ ] Créditos de Make revisados (Organization › Usage).
 - [ ] Etiqueta impresa pegada al garrafón.
+- [ ] El puesto de demo se registra con el WhatsApp real de quien hace de comerciante (10 dígitos), para que el comprobante le llegue en vivo.
 
 ### 4.4 Checklist en teléfonos reales (sección 15.3)
 
@@ -413,7 +458,7 @@ Cada vez que cambien archivos de la app, suban también el número de versión e
 npm test
 ```
 
-Levanta solos el servidor estático (`herramientas/servir.mjs`, puerto 4173) y el simulador HTTP de Make (`herramientas/simulador-make.mjs`, puerto 8787) y corre T0 a T10 de la sección 15.2 más la generación de capturas en `capturas/` (390 x 844, escala 2).
+Levanta solos el servidor estático (`herramientas/servir.mjs`, puerto 4173) y el simulador HTTP de Make (`herramientas/simulador-make.mjs`, puerto 8787) y corre T0 a T10 de la sección 15.2, T11 y T12 del asistente, más la generación de capturas en `capturas/` (390 x 844, escala 2).
 
 Para probar la PWA contra el simulador de Make a mano:
 
@@ -430,6 +475,8 @@ y en `#/config` usen `http://localhost:8787/hook/oleo-api` como URL del Escenari
 - **Contratos:** nombres de tablas, campos, rutas, parámetros y respuestas son los de las secciones 6, 7 y 8 sin cambios. Dos ajustes compatibles, que no requieren tocar Make ni Airtable:
   - Las consultas `listRecords` del comerciante agregan `"fields"` al cuerpo JSON para que la respuesta pese menos (con 51 recolecciones, abrir Mi puesto usa unos 24 KB en lugar de unos 60 KB).
   - Al **Entrar** con Puesto ID + PIN desde otro teléfono se hace una consulta a Solicitudes (`AND(ARRAYJOIN({Puesto ID})='OLEO-0007', {Estado}='Pendiente')`) para saber si ya había un aviso pendiente.
+- **Comprobante por WhatsApp:** botón en **Abono ejecutado** (recolector) y **Compartir por WhatsApp** en la constancia. Usa enlaces `wa.me` (click-to-chat): abre WhatsApp con el mensaje listo para el número que el comerciante dio al registrarse, y la persona solo toca Enviar. No requiere cuentas ni credenciales. El envío automático sin intervención (WhatsApp Business Cloud API o Twilio desde Make) queda para el piloto: requiere cuenta de Meta Business verificada y plantillas de mensaje aprobadas.
+- **Asistente con IA:** `js/agente-definicion.js` es la única fuente del modelo, las instrucciones y las herramientas; `herramientas/agente-make.mjs` genera con ella el cuerpo de Make. El historial de la conversación se reenvía siempre completo y sin editar (requisito de la API para conservar el razonamiento del modelo entre turnos); la prueba T12 lo verifica. Se activa `fallbacks: "default"` para que, si un filtro de seguridad rechaza una petición, la API la reintente en otro modelo. Limitación del prototipo: quien tenga la URL del webhook puede conversar con el asistente a costa del equipo (por eso el límite de gasto); en producción, sesiones autenticadas y límite de mensajes por puesto.
 - **Escenario B:** se recomienda agregar `Access-Control-Allow-Origin: *` a su Webhook response (solo lo usa el botón de prueba de `#/config`).
 - **Errores de Airtable:** con el manejador de error del módulo 3, cualquier rechazo de Airtable llega a la PWA como 502 `AIRTABLE_ERROR`; el detalle queda en History de Make. El simulador reproduce lo mismo.
 - **Primera carga:** todo el app shell que precachea el service worker pesa unos 92 KB comprimidos (meta: 120 KB). jsQR y Leaflet solo se descargan en las vistas del recolector.

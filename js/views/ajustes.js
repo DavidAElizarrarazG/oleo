@@ -20,7 +20,7 @@ const CAMPOS = [
   ['impactoAutoMs', 'Refresco automático del tablero (ms, 0 = apagado)', 'number', '', '1000']
 ];
 
-const MUESTRA_A = { accion: 'muestra', ruta: 'Puestos/listRecords', metodo: 'POST', cuerpo: '{}', recoleccionId: 'rec00000000000000', pin: '0000', canal: 'app' };
+const MUESTRA_A = { accion: 'muestra', ruta: 'Puestos/listRecords', metodo: 'POST', cuerpo: '{}', recoleccionId: 'rec00000000000000', pin: '0000', canal: 'app', mensajes: '[]' };
 const MUESTRA_B = { monto: '45.03', referencia: 'REC-0000', beneficiario: 'OLEO-0000', concepto: 'Prueba' };
 
 export default async function ajustes({ raiz }) {
@@ -59,6 +59,8 @@ export default async function ajustes({ raiz }) {
         <button class="btn btn-secundario" id="btn-probar">Probar conexión</button>
         <button class="btn btn-secundario" id="btn-muestra">Enviar muestra al webhook</button>
         <button class="btn btn-secundario" id="btn-spei">Probar API financiera</button>
+        <button class="btn btn-secundario" id="btn-ia">Probar asistente</button>
+        <p class="nota">"Probar asistente" manda un mensaje a Claude: gasta unos 4 créditos de Make y centavos de la API.</p>
         <pre class="panel chico mono" id="salida" style="white-space:pre-wrap;word-break:break-all;margin:0" hidden></pre>
       </section>
 
@@ -127,6 +129,16 @@ export default async function ajustes({ raiz }) {
         return;
       }
       await probarUrl(c.apiFinanciera, MUESTRA_B, 'Escenario B');
+    });
+
+    $('#btn-ia', raiz).addEventListener('click', async () => {
+      salida('Probando el asistente');
+      const t0 = performance.now();
+      try {
+        const { respuesta, bytes } = await api.agente([{ role: 'user', content: 'Hola, ¿en qué me puedes ayudar? Responde en una frase.' }]);
+        const texto = (respuesta.content || []).filter((b) => b.type === 'text').map((b) => b.text).join(' ');
+        salida(`Respondió ${respuesta.model} en ${fmtNum(performance.now() - t0)} ms, ${fmtKB(bytes)} (stop_reason: ${respuesta.stop_reason}).\n${texto}`);
+      } catch (e) { salida(`Error: ${e.message}`); }
     });
 
     $('#btn-ejemplo', raiz)?.addEventListener('click', async () => {

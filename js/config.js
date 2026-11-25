@@ -1,7 +1,7 @@
 // Configuración de OLEO: valores por defecto y persistencia en localStorage.
 // Para la demo en la nube, pega aquí la URL del webhook del Escenario A de Make (sección 14.3).
 
-export const VERSION = '1.0.0'; // debe coincidir con VERSION en sw.js
+export const VERSION = '1.2.0'; // debe coincidir con VERSION en sw.js
 
 export const DEFAULTS = Object.freeze({
   webhook: '',             // URL del Escenario A "OLEO API". Vacía = modo local

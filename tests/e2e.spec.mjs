@@ -9,6 +9,9 @@ import { fileURLToPath } from 'node:url';
 import { crearSimulador } from '../js/sim/make-airtable-sim.js';
 import { derivar, textoSello } from '../js/metrics.js';
 import { sha256 } from '../js/util.js';
+import { numeroWhatsApp } from '../js/whatsapp.js';
+import { plantillaMake, HERRAMIENTAS } from '../js/agente-definicion.js';
+import { respuestaSimulada } from '../js/sim/agente-simulado.js';
 
 const require = createRequire(import.meta.url);
 const qrcode = require('qrcode-generator');
@@ -134,6 +137,27 @@ test('T0 contrato: fórmulas, sello y respuestas de Make coinciden con el Apénd
   expect(malo.json.error.type).toBe('AIRTABLE_ERROR');
   const puesto = await q({ accion: 'db', ruta: `Puestos/${pid}`, metodo: 'GET' });
   expect(puesto.json.fields).toMatchObject({ 'Litros entregados': 15.01, 'Pesos ganados': 45.03, 'Agua protegida (L)': 15010 });
+
+  // Números de WhatsApp para wa.me
+  expect(numeroWhatsApp('55 1234 5678')).toBe('525512345678');
+  expect(numeroWhatsApp('+52 1 55 1234 5678')).toBe('5215512345678');
+  expect(numeroWhatsApp('1234')).toBe('');
+
+  // Cuerpo del módulo HTTP de Make para la ruta Agente: JSON válido con la píldora en messages.
+  const plantilla = plantillaMake();
+  expect(plantilla.match(/\{\{/g)).toHaveLength(1);
+  const cuerpo = JSON.parse(plantilla.replace('{{1.mensajes}}', '[{"role":"user","content":"Hola"}]'));
+  expect(cuerpo).toMatchObject({ model: 'claude-opus-5-5', output_config: { effort: 'low' }, fallbacks: 'default', messages: [{ role: 'user', content: 'Hola' }] });
+  expect(cuerpo).not.toHaveProperty('thinking');
+  expect(cuerpo).not.toHaveProperty('temperature');
+  expect(cuerpo.tools.map((t) => t.name)).toEqual(['consultar_mi_puesto', 'avisar_bote_lleno', 'cobrar_recoleccion']);
+  for (const t of HERRAMIENTAS) expect(t.input_schema).toMatchObject({ type: 'object', additionalProperties: false });
+  expect(cuerpo.system).not.toMatch(/\u2014/);
+  // El modelo simulado pide las mismas herramientas.
+  const pide = (texto) => respuestaSimulada([{ role: 'user', content: [{ type: 'text', text: texto }] }]).content.find((b) => b.type === 'tool_use')?.name;
+  expect(pide('Mi bote ya está lleno')).toBe('avisar_bote_lleno');
+  expect(pide('Quiero cobrar')).toBe('cobrar_recoleccion');
+  expect(pide('¿Cuánto llevo ganado?')).toBe('consultar_mi_puesto');
 });
 
 // ---------- T1: flujo completo en modo local, un solo contexto ----------
@@ -237,6 +261,7 @@ test('T2 comerciante y recolector contra el simulador HTTP, sin preflight y con 
   await m.getByLabel('Nombre del puesto').fill('Tacos El Güero');
   await m.getByLabel('Tipo de negocio').selectOption('Puesto de tacos');
   await m.getByLabel('Alcaldía').selectOption('Cuauhtémoc');
+  await m.getByLabel('WhatsApp').fill('5512345678');
   await m.getByRole('button', { name: 'Registrar mi puesto' }).click();
   await expect(m.getByRole('heading', { name: /quedó registrado/ })).toBeVisible();
   const sesion = await m.evaluate(() => JSON.parse(localStorage.getItem('oleo.puesto')));
@@ -284,6 +309,15 @@ test('T2 comerciante y recolector contra el simulador HTTP, sin preflight y con 
 
   // Pago visible en ambos lados.
   await expect(r.getByRole('heading', { name: 'Abono ejecutado' })).toBeVisible({ timeout: 10000 });
+
+  // Comprobante por WhatsApp al número del dueño, con el mensaje listo.
+  await expect(r.locator('#btn-whatsapp')).toHaveAttribute('href', /^https:\/\/wa\.me\/525512345678\?text=/);
+  await expect(r.locator('#nota-whatsapp')).toContainText('55 1234 5678');
+  const mensaje = decodeURIComponent((await r.locator('#btn-whatsapp').getAttribute('href')).split('?text=')[1]);
+  expect(mensaje).toContain('Hola, Tacos El Güero.');
+  expect(mensaje).toContain('Folio: REC-0001');
+  expect(mensaje).toMatch(/Clave de rastreo: OLEO\d{14} \d{4}/);
+  expect(mensaje).toContain(`${BASE}#/constancia/rec`);
   const consultasR = pr.filter((x) => x.metodoAirtable === 'GET' && x.ruta?.startsWith('Recolecciones/rec')).length;
   expect(consultasR).toBeLessThanOrEqual(36 + 1);
 
@@ -530,6 +564,7 @@ test('Capturas en capturas/ (390 x 844, escala 2)', async ({ browser }) => {
   await m.getByLabel('Alcaldía').selectOption('Cuauhtémoc');
   await m.getByLabel('Colonia').fill('Doctores');
   await m.getByLabel('Responsable').fill('Don Güero');
+  await m.getByLabel('WhatsApp').fill('5512345678');
   await m.getByLabel('Nombre del puesto').focus();
   await capturar(m, '02-alta');
   await m.getByRole('button', { name: 'Registrar mi puesto' }).click();
@@ -598,4 +633,99 @@ test('Capturas en capturas/ (390 x 844, escala 2)', async ({ browser }) => {
 
   await ctxM.close();
   await ctxR.close();
+});
+
+// ---------- T11 y T12: asistente del comerciante ----------
+test('T11 asistente en modo local: avisa, cobra con la tarjeta y consulta el saldo', async ({ browser }) => {
+  const ctx = await contexto(browser, { config: { modo: 'local' } });
+  const page = await ctx.newPage();
+  const errores = [];
+  page.on('pageerror', (e) => errores.push(e.message));
+  await page.goto('/#/comerciante/alta');
+  await page.getByLabel('Nombre del puesto').fill('Fonda Doña Tere');
+  await page.getByLabel('Tipo de negocio').selectOption('Fonda');
+  await page.getByLabel('Alcaldía').selectOption('Iztacalco');
+  await page.getByRole('button', { name: 'Registrar mi puesto' }).click();
+  await expect(page.getByRole('heading', { name: /quedó registrado/ })).toBeVisible();
+
+  await page.getByRole('link', { name: 'Ir a mi puesto' }).click();
+  await page.getByRole('link', { name: 'Preguntarle al asistente' }).click();
+  await expect(page.getByText('Modo local: respuestas simuladas, sin IA.')).toBeVisible();
+
+  // Avisar que el bote está lleno
+  await page.getByRole('button', { name: 'Mi bote ya está lleno' }).click();
+  await expect(page.getByText('Aviso enviado: bote al 100%.')).toBeVisible();
+  await expect(page.locator('.burbuja-asistente').last()).toContainText('Pasamos por él hoy entre 20:00 a 24:00');
+
+  // Registrar una recolección (como el recolector) y cobrarla desde el chat
+  await page.evaluate(async () => {
+    const api = await import('./js/api.js');
+    const s = api.sesionPuesto();
+    await api.registrar({ puestoRecId: s.id, recolector: 'Unidad 01', raw: 402960, brutoKg: 14.86, taraKg: 1.2, densidad: 0.91, ntu: 38.2, precio: 3, fechaValidacion: new Date().toISOString() });
+  });
+  await page.getByLabel('Escribe tu mensaje').fill('Quiero cobrar');
+  await page.getByRole('button', { name: 'Enviar' }).click();
+  const tarjeta = page.locator('.tarjeta-cobro');
+  await expect(tarjeta).toContainText('15.01');
+  await expect(tarjeta).toContainText('$45.03');
+  await tarjeta.getByRole('button', { name: 'Confirmar y cobrar' }).click();
+  await expect(tarjeta).toContainText('Recibiste $45.03');
+  await expect(page.locator('.burbuja-asistente').last()).toContainText('Recibiste $45.03 por 15.01 L');
+
+  // Saldo
+  await page.getByLabel('Escribe tu mensaje').fill('¿Cuánto llevo ganado?');
+  await page.getByLabel('Escribe tu mensaje').press('Enter');
+  await expect(page.locator('.burbuja-asistente').last()).toContainText('Llevas $45.03 ganados por 15.0 L');
+  await expect(page.locator('#medidor')).toContainText('KB de datos');
+
+  // La conversación queda guardada en el teléfono
+  await page.reload();
+  await expect(page.locator('.burbuja-usuario')).toHaveCount(3);
+  await expect(page.locator('.tarjeta-cobro')).toContainText('Recibiste $45.03');
+  expect(errores).toEqual([]);
+  await ctx.close();
+});
+
+test('T12 asistente contra el simulador HTTP: form-urlencoded, sin preflight e historial que solo crece', async ({ browser }) => {
+  await reiniciarSim();
+  const puesto = await crearPuesto('Tacos Don Chava', '5150');
+  await crearRecoleccion(puesto, 12.12);
+  const ctx = await contexto(browser, { config: CONFIG_NUBE, sesion: puesto });
+  const page = await ctx.newPage();
+  const llamadasIA = [];
+  page.on('request', (r) => {
+    if (!r.url().startsWith(SIM)) return;
+    const campos = Object.fromEntries(new URLSearchParams(r.postData() || ''));
+    if (campos.accion === 'agente') llamadasIA.push({ tipo: r.headers()['content-type'], mensajes: JSON.parse(campos.mensajes) });
+  });
+
+  await page.goto('/#/asistente');
+  await expect(page.getByText('Asistente con IA (Claude).')).toBeVisible();
+  await page.getByRole('button', { name: '¿Cuánto llevo ganado?' }).click();
+  await expect(page.locator('.burbuja-asistente').last()).toContainText('Tienes una recolección por confirmar');
+  await page.getByLabel('Escribe tu mensaje').fill('Quiero cobrar');
+  await page.getByRole('button', { name: 'Enviar' }).click();
+  await page.locator('.tarjeta-cobro').getByRole('button', { name: 'No coincide' }).click();
+  await expect(page.locator('.burbuja-asistente').last()).toContainText('vuelva a pesar');
+  expect((await db(`Recolecciones/${(await db('Recolecciones/listRecords', 'POST', { maxRecords: 1 })).json.records[0].id}`, 'GET')).json.fields.Estado).toBe('Rechazada');
+
+  // 4 llamadas al modelo: pregunta, resultado de consulta, pedido de cobro, resultado del cobro.
+  expect(llamadasIA).toHaveLength(4);
+  for (const l of llamadasIA) expect(l.tipo).toMatch(/^application\/x-www-form-urlencoded/);
+  for (let i = 1; i < llamadasIA.length; i++) {
+    const previo = llamadasIA[i - 1].mensajes;
+    expect(llamadasIA[i].mensajes.slice(0, previo.length)).toEqual(previo);
+    expect(llamadasIA[i].mensajes.length).toBeGreaterThan(previo.length);
+  }
+  // Cada tool_use tiene su tool_result en el mensaje siguiente.
+  const final = llamadasIA[3].mensajes;
+  final.forEach((m, i) => {
+    if (m.role !== 'assistant') return;
+    for (const uso of m.content.filter((b) => b.type === 'tool_use')) {
+      expect(final[i + 1].content.some((b) => b.type === 'tool_result' && b.tool_use_id === uso.id)).toBe(true);
+    }
+  });
+  expect(final[0].content[0].text).toMatch(/^<contexto>Puesto: Tacos Don Chava \(OLEO-0001\)/);
+  expect((await estadoSim()).preflights).toBe(0);
+  await ctx.close();
 });

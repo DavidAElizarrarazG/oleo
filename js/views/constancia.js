@@ -4,6 +4,7 @@ import * as api from '../api.js';
 import { textoSello } from '../metrics.js';
 import { $, esc, fmtNum, fmtKg, fmtL, fmtMoneda, fmtFechaTicket, fmtClave, bloques, sha256, icono } from '../util.js';
 import { cadenaDato, mensajeError } from './componentes.js';
+import { enlaceWhatsApp, mensajePago } from '../whatsapp.js';
 
 export default async function constancia({ raiz, params, senal }) {
   const id = params.id;
@@ -64,6 +65,7 @@ export default async function constancia({ raiz, params, senal }) {
     </article>
     <div class="pila no-imprimir">
       <button class="btn btn-primario" id="btn-imprimir">Guardar como PDF</button>
+      <a class="btn btn-secundario" target="_blank" rel="noopener" href="${esc(enlaceWhatsApp(api.cache.puestos.get(r.puestoRecId)?.whatsapp, mensajePago(r, r.nombre)))}">Compartir por WhatsApp</a>
     </div>
     <div class="no-imprimir">${cadenaDato(r, { selloCompleto: false })}</div>`;
 

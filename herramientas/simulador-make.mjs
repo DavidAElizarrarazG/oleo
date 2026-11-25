@@ -2,7 +2,10 @@
 // js/sim/make-airtable-sim.js que usa el modo local del navegador.
 //
 //   node herramientas/simulador-make.mjs [--puerto 8787] [--latencia 250-700] [--latencia-pago 900-1500]
-//                                        [--falla-red] [--ejemplo]
+//                                        [--falla-red] [--ejemplo] [--claude]
+//
+// --claude: la ruta Agente llama a la API real de Claude con el mismo cuerpo que Make
+//           (necesita ANTHROPIC_API_KEY). Sin la bandera, responde el modelo simulado.
 //
 // Endpoints:
 //   POST /hook/oleo-api   Escenario A (OLEO API)
@@ -15,6 +18,8 @@
 
 import { createServer } from 'node:http';
 import { crearSimulador } from '../js/sim/make-airtable-sim.js';
+import { manejadorSimulado } from '../js/sim/agente-simulado.js';
+import { cuerpoClaude, BETA_FALLBACK } from '../js/agente-definicion.js';
 
 const args = process.argv.slice(2);
 const opcion = (nombre, porDefecto) => {
@@ -29,7 +34,32 @@ const silencioso = args.includes('--silencioso');
 const peticiones = [];
 let preflights = 0;
 
+// Ruta Agente con la API real: mismo cuerpo que el módulo HTTP de Make, respuesta tal cual.
+async function manejadorClaude() {
+  const { default: Anthropic } = await import('@anthropic-ai/sdk');
+  const cliente = new Anthropic();
+  return async (mensajes) => {
+    if (!Array.isArray(mensajes) || !mensajes.length) return manejadorSimulado(mensajes);
+    try {
+      const m = await cliente.beta.messages.create({ ...cuerpoClaude(mensajes), betas: [BETA_FALLBACK] });
+      return { status: 200, body: JSON.stringify(m) };
+    } catch (e) {
+      if (e instanceof Anthropic.APIError) {
+        const cuerpo = e.error && typeof e.error === 'object' ? e.error : { type: 'error', error: { type: 'api_error', message: e.message } };
+        return { status: e.status || 502, body: JSON.stringify(cuerpo) };
+      }
+      throw e;
+    }
+  };
+}
+const conClaude = args.includes('--claude');
+if (conClaude && !process.env.ANTHROPIC_API_KEY) {
+  console.error('--claude necesita la variable ANTHROPIC_API_KEY.');
+  process.exit(1);
+}
+
 const sim = crearSimulador({
+  agente: conClaude ? await manejadorClaude() : manejadorSimulado,
   latencia: { db: rango(opcion('--latencia'), '250-700'), pago: rango(opcion('--latencia-pago'), '900-1500') },
   bitacora: (e) => {
     if (silencioso) return;
@@ -106,4 +136,5 @@ servidor.listen(puerto, () => {
   console.log(`Simulador de Make en http://localhost:${puerto}`);
   console.log(`  Escenario A: http://localhost:${puerto}/hook/oleo-api`);
   console.log(`  Escenario B: http://localhost:${puerto}/hook/spei-sim`);
+  console.log(`  Asistente: ${conClaude ? 'API real de Claude' : 'modelo simulado'}`);
 });

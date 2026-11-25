@@ -219,7 +219,8 @@ const ICONOS = {
   ajustes: '<circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/>',
   verificado: '<path d="M12 3l7 3v5.5c0 4.3-3 7.8-7 9.5-4-1.7-7-5.2-7-9.5V6z"/><path d="m8.5 12 2.5 2.5 4.5-5"/>',
   alerta: '<path d="M12 4 2.5 20h19z"/><path d="M12 10v4.5M12 17.2v.3"/>',
-  borrar: '<path d="M21 6H8l-6 6 6 6h13zM12 9.5l5 5M17 9.5l-5 5"/>'
+  borrar: '<path d="M21 6H8l-6 6 6 6h13zM12 9.5l5 5M17 9.5l-5 5"/>',
+  chat: '<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9.5h8M8 12.5h5"/>'
 };
 export const icono = (nombre, clase = 'icono') =>
   `<svg class="${clase}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONOS[nombre] || ''}</svg>`;

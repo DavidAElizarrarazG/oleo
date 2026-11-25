@@ -49,17 +49,17 @@ async function transporteLocal(campos) {
   return { status: r.status, texto: r.body, bytes: bytesUtf8(cuerpo) + bytesUtf8(r.body) };
 }
 
-async function transporteNube(campos, url) {
+async function transporteNube(campos, url, tiempoMs = TIEMPO_MAX_MS) {
   const cuerpo = new URLSearchParams(campos);
   const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), TIEMPO_MAX_MS);
+  const t = setTimeout(() => ctrl.abort(), tiempoMs);
   try {
     // form-urlencoded = simple request de CORS: sin preflight OPTIONS. No agregar headers.
     const resp = await fetch(url, { method: 'POST', body: cuerpo, signal: ctrl.signal, cache: 'no-store' });
     const texto = await resp.text();
     return { status: resp.status, texto, bytes: bytesUtf8(cuerpo.toString()) + bytesUtf8(texto) };
   } catch (e) {
-    if (e.name === 'AbortError') throw new ErrorOleo('tiempo', 'Make tardó más de 20 s en responder. Intenta de nuevo.');
+    if (e.name === 'AbortError') throw new ErrorOleo('tiempo', `Make tardó más de ${Math.round(tiempoMs / 1000)} s en responder. Intenta de nuevo.`);
     throw new ErrorOleo('red', 'Sin conexión con el servidor. Revisa tu señal e intenta de nuevo.', { causa: e });
   } finally {
     clearTimeout(t);
@@ -67,10 +67,10 @@ async function transporteNube(campos, url) {
 }
 
 // Interfaz del transporte: devuelve { status, json, bytes }.
-export async function enviar(campos) {
+export async function enviar(campos, { tiempoMs } = {}) {
   const c = obtenerConfig();
   const local = modoEfectivo(c) === 'local';
-  const r = local ? await transporteLocal(campos) : await transporteNube(campos, c.webhook);
+  const r = local ? await transporteLocal(campos) : await transporteNube(campos, c.webhook, tiempoMs);
   totalBytes += r.bytes;
   oyentesBytes.forEach((fn) => fn(r.bytes, totalBytes));
   let json;
@@ -257,6 +257,37 @@ export async function pagar(recId, pin, canal) {
   try { sessionStorage.setItem(`oleo.pago.${recId}`, JSON.stringify(pago)); } catch { /* sin almacenamiento */ }
   cache.recolecciones.delete(recId);
   return pago;
+}
+
+// ---------- Asistente (ruta Agente del Escenario A) ----------
+// Manda la conversación completa; Make le agrega modelo, instrucciones y herramientas y la reenvía a Claude.
+// Devuelve { respuesta, bytes } con el mensaje de la API de Messages tal cual.
+const ERRORES_IA = {
+  overloaded_error: 'El asistente está saturado. Intenta en un momento.',
+  rate_limit_error: 'El asistente recibió demasiados mensajes. Intenta en un momento.',
+  authentication_error: 'Falta configurar la API key de Claude en Make.',
+  permission_error: 'La API key de Claude en Make no tiene permiso para este modelo.',
+  billing_error: 'La cuenta de Claude del equipo no tiene saldo.',
+  invalid_request_error: 'La conversación no es válida. Empieza una nueva.',
+  request_too_large: 'La conversación es muy larga. Empieza una nueva.'
+};
+
+export async function agente(mensajes) {
+  const { status, json, bytes } = await enviar({ accion: 'agente', mensajes: JSON.stringify(mensajes) }, { tiempoMs: 60000 });
+  if (json?.type === 'error' || (json?.error && typeof json.error === 'object')) {
+    console.error(`Claude/Make ${status}`, json.error);
+    const tipo = json.error?.type;
+    const msg = ERRORES_IA[tipo] || (tipo === 'AIRTABLE_ERROR' ? json.error.message : `El asistente no pudo responder (${tipo || status}).`);
+    throw new ErrorOleo('ia', msg, { status, detalle: json.error });
+  }
+  if (status === 400 && json?.ok === false) {
+    throw new ErrorOleo('accion', 'El asistente aún no está configurado en Make (falta la ruta Agente del Escenario A).', { status });
+  }
+  if (status >= 400 || json?.type !== 'message') {
+    console.error('Respuesta inesperada del asistente', status, json);
+    throw new ErrorOleo('servidor', `El asistente no pudo responder (${status}).`, { status });
+  }
+  return { respuesta: json, bytes };
 }
 
 export function pagoLocal(recId) {

@@ -380,6 +380,29 @@ details.ajustes-sim[open] { padding-bottom: 14px; }
 /* Cifras grandes con números proporcionales; tabulares solo en columnas. */
 .heroe-agua .cifra, .bote-nivel, .cobro-ok .cifra-monto, .resumen .valor, .indicadores .valor, .metricas-verdes .valor, .portada h1 { font-variant-numeric: proportional-nums; }
 
+/* ---------- Asistente ---------- */
+.solo-lector { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.chat { display: flex; flex-direction: column; gap: 10px; }
+.burbuja { max-width: 86%; padding: 10px 14px; border-radius: 16px; font-size: 15px; line-height: 1.45; overflow-wrap: anywhere; }
+.burbuja-usuario { align-self: flex-end; background: var(--tinta); color: var(--papel); border-bottom-right-radius: 4px; }
+.burbuja-asistente { align-self: flex-start; background: var(--superficie); border: 1px solid var(--linea); border-bottom-left-radius: 4px; }
+.chat-nota { align-self: center; text-align: center; font-size: 13px; color: var(--tinta-2); max-width: 90%; }
+.chat-estado { align-self: flex-start; font-size: 13px; color: var(--tinta-2); animation: latir 1.2s ease-in-out infinite; }
+@keyframes latir { 50% { opacity: .45; } }
+.tarjeta-cobro { width: 100%; }
+.sugerencias { display: flex; flex-wrap: wrap; gap: 8px; }
+.redactor {
+  position: sticky; bottom: calc(var(--alto-barra) + env(safe-area-inset-bottom)); z-index: 5;
+  display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end;
+  padding: 10px 0; background: var(--papel); border-top: 1px solid var(--linea);
+}
+.redactor textarea {
+  min-height: 52px; max-height: 140px; resize: none; padding: 13px 14px; border-radius: 12px;
+  border: 1.5px solid var(--linea); background: var(--superficie); font: inherit; font-size: 17px; width: 100%;
+}
+.redactor textarea:focus { border-color: var(--agua); outline: none; }
+.redactor .btn { width: auto; }
+
 /* ---------- Diálogo y avisos ---------- */
 .dialogo {
   border: 0; border-radius: 18px; padding: 20px; width: min(92vw, 420px);

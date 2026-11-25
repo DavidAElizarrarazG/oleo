@@ -43,7 +43,8 @@ export async function alta({ raiz, ir }) {
       </div>
       <div class="campo">
         <label for="f-whatsapp">WhatsApp <span class="opcional">(opcional, 10 dígitos)</span></label>
-        <input id="f-whatsapp" name="whatsapp" type="tel" inputmode="numeric" maxlength="14" autocomplete="tel-national">
+        <input id="f-whatsapp" name="whatsapp" type="tel" inputmode="numeric" maxlength="14" autocomplete="tel-national" aria-describedby="ayuda-whatsapp">
+        <span class="ayuda" id="ayuda-whatsapp">Para mandarte tu comprobante de pago.</span>
       </div>
       <div class="campo">
         <span class="rotulo">Ubicación del puesto</span>
@@ -211,6 +212,7 @@ export async function miPuesto({ raiz, senal, ir }) {
     </div>
     <div id="zona-qr" class="qr-caja" hidden></div>
     <div id="zona-confirmar"></div>
+    <a class="btn btn-secundario" href="#/asistente">${icono('chat')}Preguntarle al asistente</a>
     <section class="seccion" aria-labelledby="titulo-bote">
       <h2 id="titulo-bote">Nivel del bote</h2>
       <div class="bote">

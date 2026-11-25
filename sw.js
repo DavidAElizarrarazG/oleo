@@ -1,6 +1,6 @@
 // Service worker de OLEO (sección 9.3).
 // Cambia VERSION en cada despliegue (y en js/config.js) para que los teléfonos reciban la versión nueva.
-const VERSION = '1.0.0';
+const VERSION = '1.2.0';
 const CACHE = `oleo-v${VERSION}`;
 
 const SHELL = [
@@ -16,8 +16,11 @@ const SHELL = [
   'js/route.js',
   'js/scale.js',
   'js/qr.js',
+  'js/whatsapp.js',
+  'js/agente.js',
   'js/sim/make-airtable-sim.js',
   'js/sim/datos-ejemplo.js',
+  'js/sim/agente-simulado.js',
   'js/views/componentes.js',
   'js/views/inicio.js',
   'js/views/comerciante.js',
@@ -25,6 +28,7 @@ const SHELL = [
   'js/views/constancia.js',
   'js/views/impacto.js',
   'js/views/ajustes.js',
+  'js/views/asistente.js',
   'vendor/qrcode.min.js',
   'icons/icon.svg',
   'icons/icon-192.png',

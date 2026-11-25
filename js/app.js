@@ -11,6 +11,7 @@ const RUTAS = [
   ['/comerciante/alta', './views/comerciante.js', 'alta', 'dia', 'comerciante'],
   ['/comerciante/listo', './views/comerciante.js', 'listo', 'dia', 'comerciante'],
   ['/comerciante/entrar', './views/comerciante.js', 'entrar', 'dia', 'comerciante'],
+  ['/asistente', './views/asistente.js', 'default', 'dia', 'comerciante'],
   ['/p/:puestoId', './views/comerciante.js', 'destinoQR', 'dia', ''],
   ['/recolector', './views/recolector.js', 'ruta', 'noche', 'recolector'],
   ['/recolector/escanear', './views/recolector.js', 'escanear', 'noche', 'recolector'],
